@@ -1,0 +1,1797 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BMW Dubai Horizon 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: #dbeafe;
+    }
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .font-speed {
+      font-family: 'Orbitron', sans-serif;
+    }
+    .gt-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 14px 36px -10px rgba(15, 23, 42, 0.18), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+    }
+    .m-tricolor {
+      background: linear-gradient(90deg, #009ADA 0%, #009ADA 33.3%, #1B365D 33.3%, #1B365D 66.6%, #E2231A 66.6%, #E2231A 100%);
+    }
+    .btn-drive {
+      background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .btn-drive:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -6px rgba(2, 132, 199, 0.52);
+    }
+    .btn-drive:active {
+      transform: scale(0.98);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(148, 163, 184, 0.15);
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+      border-radius: 999px;
+    }
+    @keyframes warnPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .animate-warn {
+      animation: warnPulse 0.75s infinite;
+    }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen 3D Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Dynamic Event Toast -->
+  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 -translate-y-3">
+    <div class="gt-panel px-5 py-2.5 rounded-full flex items-center gap-2 shadow-xl border border-sky-200">
+      <span id="toast-icon" class="text-base">💎</span>
+      <span id="toast-msg" class="text-xs sm:text-sm font-extrabold text-slate-900 tracking-wide">NEAR MISS! +15 DIAMONDS</span>
+    </div>
+  </div>
+
+  <!-- Top Bar (Persistent in Showroom & Gameplay) -->
+  <header class="fixed top-0 left-0 right-0 z-40 p-3 sm:p-4 flex items-center justify-between pointer-events-none">
+    <!-- Brand Emblem -->
+    <div class="gt-panel px-3.5 py-2 rounded-2xl flex items-center gap-3 pointer-events-auto">
+      <div class="w-9 h-9 rounded-full bg-slate-900 border-2 border-slate-300 overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+        <div class="bg-sky-500"></div>
+        <div class="bg-white"></div>
+        <div class="bg-white"></div>
+        <div class="bg-sky-500"></div>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-black text-slate-900 text-sm sm:text-base tracking-tight">BMW DUBAI HORIZON</span>
+          <span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-600 text-white">3D</span>
+        </div>
+        <div class="h-1 w-24 rounded-full m-tricolor mt-0.5"></div>
+      </div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="flex items-center gap-2 sm:gap-2.5 pointer-events-auto">
+      <!-- Diamond Wallet -->
+      <div class="gt-panel px-3.5 py-2 rounded-2xl flex items-center gap-2 border border-sky-200">
+        <svg class="w-5 h-5 text-sky-500" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 9l10 13L22 9l-10-7zm0 3.3L18.2 9 12 17.5 5.8 9 12 5.3z"/>
+        </svg>
+        <span id="wallet-diamonds" class="font-speed font-extrabold text-slate-900 text-sm sm:text-base">300</span>
+      </div>
+
+      <!-- Camera View Toggle (Gameplay) -->
+      <button id="btn-cam" onclick="cycleCameraMode()" title="Switch Camera View (C)" class="hidden gt-panel px-3 py-2.5 rounded-2xl text-xs font-extrabold text-slate-800 hover:bg-white transition cursor-pointer">
+        🎥 <span id="cam-label">CHASE</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="btn-sound" onclick="toggleAudio()" title="Toggle Engine & Turbo Audio" class="gt-panel p-2.5 rounded-2xl text-slate-800 hover:text-sky-600 transition cursor-pointer">
+        <svg id="sound-on-icon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+        </svg>
+        <svg id="sound-off-icon" class="w-5 h-5 hidden text-rose-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+        </svg>
+      </button>
+
+      <!-- Garage Return Button -->
+      <button id="btn-garage" onclick="openGarage()" class="hidden gt-panel px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold text-slate-800 hover:bg-white transition cursor-pointer">
+        🏠 <span class="hidden sm:inline">GARAGE</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= SHOWROOM & GARAGE MENU ================= -->
+  <main id="showroom-ui" class="fixed inset-0 z-30 flex flex-col justify-between pt-20 pb-4 px-3 sm:px-6 pointer-events-none">
+    
+    <!-- Top Selectors: Dubai Environment & Driving Mode -->
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-3 pointer-events-auto">
+      <!-- Environment Selector -->
+      <div class="lg:col-span-6 gt-panel rounded-3xl p-3.5 sm:p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">1. Dubai Environment</span>
+          <span id="env-badge" class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">☀️ Bright Sunny • 34°C</span>
+        </div>
+        <div id="env-grid" class="grid grid-cols-3 gap-2"></div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="lg:col-span-6 gt-panel rounded-3xl p-3.5 sm:p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">2. Game Mode</span>
+          <span id="mode-subtitle" class="text-[11px] font-semibold text-sky-700 truncate max-w-[220px]">Endless traffic dodging & diamonds</span>
+        </div>
+        <div id="mode-grid" class="grid grid-cols-3 gap-2"></div>
+      </div>
+    </div>
+
+    <!-- Bottom Showroom Details & BMW Model Lineup -->
+    <div class="w-full max-w-6xl mx-auto flex flex-col gap-3 pointer-events-auto mt-auto">
+      
+      <!-- Car Specs, Paint & Action CTA -->
+      <div class="gt-panel rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="ui-car-era" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-900 text-white">1973 CLASSIC</span>
+            <span id="ui-car-owned" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">✓ IN GARAGE</span>
+          </div>
+          <h1 id="ui-car-name" class="text-xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1 truncate">1973 BMW 2002 Turbo</h1>
+          <p id="ui-car-desc" class="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">Lightweight turbocharged pioneer of Munich performance.</p>
+
+          <!-- Paint Swatches -->
+          <div class="flex items-center gap-2 mt-3">
+            <span class="text-[11px] font-extrabold uppercase text-slate-500 mr-1">Factory Paint:</span>
+            <button onclick="changePaint('#ffffff')" class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 shadow hover:scale-110 transition cursor-pointer" title="Alpine White"></button>
+            <button onclick="changePaint('#0284c7')" class="w-6 h-6 rounded-full bg-sky-600 border-2 border-white shadow hover:scale-110 transition cursor-pointer" title="Estoril Blue"></button>
+            <button onclick="changePaint('#dc2626')" class="w-6 h-6 rounded-full bg-red-600 border-2 border-white shadow hover:scale-110 transition cursor-pointer" title="Imola Red"></button>
+            <button onclick="changePaint('#f59e0b')" class="w-6 h-6 rounded-full bg-amber-500 border-2 border-white shadow hover:scale-110 transition cursor-pointer" title="Austin Yellow"></button>
+            <button onclick="changePaint('#0f172a')" class="w-6 h-6 rounded-full bg-slate-900 border-2 border-white shadow hover:scale-110 transition cursor-pointer" title="Black Sapphire"></button>
+            <button onclick="changePaint('#10b981')" class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow hover:scale-110 transition cursor-pointer" title="Isle of Man Green"></button>
+          </div>
+        </div>
+
+        <!-- Telemetry Bars -->
+        <div class="w-full md:w-72 grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-100/90 p-3 rounded-2xl border border-slate-200">
+          <div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+              <span>TOP SPEED</span>
+              <span id="spec-speed-txt" class="text-slate-900">225 KM/H</span>
+            </div>
+            <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div id="spec-speed-bar" class="h-full bg-sky-600 rounded-full transition-all duration-300" style="width: 55%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+              <span>0-100 KM/H</span>
+              <span id="spec-accel-txt" class="text-slate-900">6.8s</span>
+            </div>
+            <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div id="spec-accel-bar" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: 50%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+              <span>HANDLING</span>
+              <span id="spec-hand-txt" class="text-slate-900">78%</span>
+            </div>
+            <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div id="spec-hand-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 78%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+              <span>ARMOR HP</span>
+              <span id="spec-armor-txt" class="text-slate-900">100</span>
+            </div>
+            <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div id="spec-armor-bar" class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: 50%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Primary CTA -->
+        <div class="w-full md:w-auto flex flex-col items-stretch md:items-end gap-1.5">
+          <button id="btn-primary-cta" onclick="onPrimaryAction()" class="btn-drive text-white font-black text-base sm:text-lg px-7 py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+            <span>START ENGINE</span>
+          </button>
+          <span class="text-[11px] text-slate-500 font-medium text-center md:text-right">WASD / Arrows • Space/Shift = Nitro • C = Camera</span>
+        </div>
+      </div>
+
+      <!-- Classic-to-Modern BMW Models Strip -->
+      <div class="gt-panel rounded-3xl p-3">
+        <div class="flex items-center justify-between px-1 mb-2">
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">BMW Heritage & Modern Lineup (1973 — 2026)</span>
+          <span class="text-[11px] font-bold text-sky-700">Collect 💎 on Dubai Roads to Unlock All Cars</span>
+        </div>
+        <div id="car-strip" class="flex gap-2.5 overflow-x-auto custom-scroll pb-1"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= ACTIVE GAMEPLAY HUD ================= -->
+  <div id="gameplay-hud" class="hidden fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 sm:p-5">
+    
+    <!-- Top Center Telemetry Pills -->
+    <div class="mt-14 sm:mt-16 mx-auto flex items-center gap-2 sm:gap-3">
+      <div class="gt-panel px-4 py-2 rounded-2xl text-center min-w-[100px]">
+        <div id="hud-m1-label" class="text-[10px] font-extrabold uppercase text-slate-500">DISTANCE</div>
+        <div id="hud-m1-val" class="font-speed font-black text-slate-900 text-sm sm:text-lg">0.00 KM</div>
+      </div>
+      <div class="gt-panel px-4 py-2 rounded-2xl text-center min-w-[110px]">
+        <div id="hud-m2-label" class="text-[10px] font-extrabold uppercase text-slate-500">SCORE</div>
+        <div id="hud-m2-val" class="font-speed font-black text-sky-600 text-sm sm:text-lg">0</div>
+      </div>
+      <div class="gt-panel px-4 py-2 rounded-2xl text-center min-w-[95px]">
+        <div class="text-[10px] font-extrabold uppercase text-slate-500">RUN 💎</div>
+        <div id="hud-m3-val" class="font-speed font-black text-amber-600 text-sm sm:text-lg">+0</div>
+      </div>
+    </div>
+
+    <!-- Bottom Controls & Digital Cluster -->
+    <div class="w-full flex flex-col gap-3">
+      
+      <!-- Mobile Touch Controls -->
+      <div class="flex items-end justify-between w-full md:hidden pointer-events-auto px-1">
+        <div class="flex gap-2.5">
+          <button id="t-left" class="gt-panel w-16 h-16 rounded-2xl flex items-center justify-center text-slate-900 active:bg-sky-600 active:text-white shadow-lg">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button id="t-right" class="gt-panel w-16 h-16 rounded-2xl flex items-center justify-center text-slate-900 active:bg-sky-600 active:text-white shadow-lg">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+
+        <div class="flex gap-2 items-end">
+          <button id="t-nitro" class="bg-gradient-to-t from-sky-600 to-cyan-400 text-white font-black text-xs w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg border border-white/60">
+            <span>🔥</span><span>NOS</span>
+          </button>
+          <button id="t-brake" class="gt-panel text-rose-600 font-black text-xs w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg active:bg-rose-600 active:text-white">
+            <span>🛑</span><span>BRK</span>
+          </button>
+          <button id="t-gas" class="bg-slate-900 text-white font-black text-xs w-16 h-20 rounded-2xl flex flex-col items-center justify-center shadow-lg active:bg-emerald-600 border border-slate-700">
+            <span>⚡</span><span>GAS</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Automotive Instrument Cluster -->
+      <div class="max-w-4xl w-full mx-auto gt-panel rounded-3xl p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-6">
+        <!-- Integrity & Nitro Gauges -->
+        <div class="flex-1 flex flex-col gap-2">
+          <div>
+            <div class="flex justify-between items-center text-[11px] font-extrabold mb-1">
+              <span class="text-slate-700">🛡️ CHASSIS HEALTH</span>
+              <span id="hud-hp-txt" class="font-speed text-emerald-600">100%</span>
+            </div>
+            <div class="h-2.5 bg-slate-200 rounded-full overflow-hidden p-0.5">
+              <div id="hud-hp-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-150" style="width: 100%"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center text-[11px] font-extrabold mb-1">
+              <span class="text-slate-700">🔥 TWIN-TURBO NITRO <span class="hidden sm:inline text-slate-400">(SPACE/SHIFT)</span></span>
+              <span id="hud-nos-txt" class="font-speed text-sky-600">100%</span>
+            </div>
+            <div class="h-2.5 bg-slate-200 rounded-full overflow-hidden p-0.5">
+              <div id="hud-nos-bar" class="h-full bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-400 rounded-full transition-all duration-75" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Digital Speedometer & Gear -->
+        <div class="flex items-center gap-3 sm:gap-4 bg-slate-900 text-white px-4 sm:px-6 py-2.5 rounded-2xl border border-slate-700 shadow-inner">
+          <div class="text-center">
+            <div id="hud-speed" class="font-speed text-2xl sm:text-4xl font-black text-white leading-none">0</div>
+            <div class="text-[10px] font-bold text-sky-400 tracking-widest mt-1">KM/H</div>
+          </div>
+          <div class="h-9 w-[1px] bg-slate-700"></div>
+          <div class="text-center">
+            <div class="text-[9px] font-bold text-slate-400">GEAR</div>
+            <div id="hud-gear" class="font-speed text-xl sm:text-2xl font-black text-amber-400">1</div>
+          </div>
+        </div>
+
+        <!-- Desktop Quick Actions -->
+        <div class="hidden sm:flex items-center gap-2 pointer-events-auto">
+          <button id="btn-openworld-env" onclick="cycleEnvironmentInGame()" class="hidden px-3.5 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs transition cursor-pointer">
+            🌅 Switch Map
+          </button>
+          <button onmousedown="keys.nitro=true" onmouseup="keys.nitro=false" onmouseleave="keys.nitro=false" class="px-4 py-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 text-white font-black text-xs tracking-wider shadow hover:brightness-110 active:scale-95 transition cursor-pointer">
+            ⚡ NITRO
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= WRECKED / FINISH MODAL ================= -->
+  <div id="end-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="gt-panel max-w-md w-full rounded-3xl p-6 sm:p-7 text-center shadow-2xl border border-white">
+      <div id="end-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 mb-3">
+        💥 VEHICLE WRECKED
+      </div>
+      <h2 id="end-title" class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">BMW DESTROYED!</h2>
+      <p id="end-sub" class="text-sm text-slate-600 mt-1">Your BMW sustained critical collision damage on Dubai Highway.</p>
+
+      <div class="grid grid-cols-3 gap-2.5 my-5 bg-slate-100 p-3.5 rounded-2xl border border-slate-200">
+        <div>
+          <div class="text-[10px] font-bold text-slate-500">DISTANCE</div>
+          <div id="res-dist" class="font-speed font-black text-slate-900 text-base sm:text-lg mt-0.5">0.0 KM</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold text-slate-500">TOP SPEED</div>
+          <div id="res-speed" class="font-speed font-black text-sky-600 text-base sm:text-lg mt-0.5">0</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold text-slate-500">EARNED 💎</div>
+          <div id="res-diamonds" class="font-speed font-black text-amber-600 text-base sm:text-lg mt-0.5">+0</div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <button onclick="openGarage()" class="flex-1 py-3.5 px-4 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-900 font-extrabold text-sm transition cursor-pointer">
+          🏠 GARAGE & UNLOCK
+        </button>
+        <button onclick="startDrive()" class="flex-1 btn-drive py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg cursor-pointer">
+          🔧 REPAIR & DRIVE
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * BMW DUBAI HORIZON 3D — COMPLETE THREE.JS + WEB AUDIO ENGINE
+     * ============================================================================
+     */
+
+    // 1. BMW CAR LINEUP (1973 Classic to 2026 Concept)
+    const CARS = [
+      {
+        id: 'bmw_1973_2002',
+        name: '1973 BMW 2002 Turbo',
+        year: '1973',
+        era: 'VINTAGE CLASSIC',
+        desc: 'Lightweight turbocharged pioneer with classic round-lamp heritage.',
+        price: 0,
+        topSpeed: 225,
+        accel: 0.54,
+        handling: 0.84,
+        armor: 100,
+        defaultColor: '#ffffff',
+        shape: 'classic',
+        spoiler: false,
+        widebody: false,
+        grilleStyle: 'classic_narrow'
+      },
+      {
+        id: 'bmw_1990_e30',
+        name: '1990 BMW M3 E30',
+        year: '1990',
+        era: 'DTM LEGEND',
+        desc: 'Box-flared motorsport icon with signature Evo rear wing.',
+        price: 150,
+        topSpeed: 252,
+        accel: 0.64,
+        handling: 0.92,
+        armor: 115,
+        defaultColor: '#dc2626',
+        shape: 'classic',
+        spoiler: true,
+        widebody: true,
+        grilleStyle: 'classic_narrow'
+      },
+      {
+        id: 'bmw_2005_e46',
+        name: '2005 BMW M3 GTR E46',
+        year: '2005',
+        era: 'V8 ENDURANCE ICON',
+        desc: 'Widebody P60B40 V8 street-legal track legend.',
+        price: 400,
+        topSpeed: 298,
+        accel: 0.78,
+        handling: 0.96,
+        armor: 140,
+        defaultColor: '#ffffff',
+        shape: 'coupe',
+        spoiler: true,
+        widebody: true,
+        grilleStyle: 'modern_wide'
+      },
+      {
+        id: 'bmw_2016_f82',
+        name: '2016 BMW M4 F82',
+        year: '2016',
+        era: 'TWIN-TURBO COUPE',
+        desc: 'Sculpted carbon roof coupe engineered for high-speed stability.',
+        price: 750,
+        topSpeed: 325,
+        accel: 0.88,
+        handling: 0.95,
+        armor: 160,
+        defaultColor: '#0284c7',
+        shape: 'coupe',
+        spoiler: true,
+        widebody: false,
+        grilleStyle: 'modern_wide'
+      },
+      {
+        id: 'bmw_2024_g82',
+        name: '2024 BMW M4 Competition G82',
+        year: '2024',
+        era: 'MODERN TRACK WEAPON',
+        desc: 'Bold vertical kidney grille and razor-sharp M xDrive grip.',
+        price: 1300,
+        topSpeed: 352,
+        accel: 0.98,
+        handling: 1.02,
+        armor: 175,
+        defaultColor: '#f59e0b',
+        shape: 'coupe',
+        spoiler: true,
+        widebody: true,
+        grilleStyle: 'vertical_g82'
+      },
+      {
+        id: 'bmw_2026_m5cs',
+        name: '2026 BMW M5 CS / Concept',
+        year: '2026',
+        era: 'HYBRID HYPER FLAGSHIP',
+        desc: 'Next-gen V8 hybrid hyper-sedan built to dominate Dubai highways.',
+        price: 2200,
+        topSpeed: 392,
+        accel: 1.12,
+        handling: 1.08,
+        armor: 205,
+        defaultColor: '#10b981',
+        shape: 'hyper',
+        spoiler: true,
+        widebody: true,
+        grilleStyle: 'illuminated_concept'
+      }
+    ];
+
+    // 2. DUBAI BRIGHT ENVIRONMENTS
+    const ENVIRONMENTS = [
+      {
+        id: 'szr_sunny',
+        name: 'Sheikh Zayed Rd',
+        tag: 'Bright Sunny',
+        weather: '☀️ Bright Sunny • 35°C',
+        skyTop: 0x0284c7,
+        skyBottom: 0xbae6fd,
+        fogColor: 0xcbeafe,
+        sunColor: 0xfffbeb,
+        sunIntensity: 1.45,
+        groundColor: 0xe8d1a7,
+        roadColor: 0x2b323c,
+        type: 'skyline',
+        hasOcean: false
+      },
+      {
+        id: 'desert_sunset',
+        name: 'Desert Highway',
+        tag: 'Golden Sunset',
+        weather: '🌅 Golden Sunset • 30°C',
+        skyTop: 0xea580c,
+        skyBottom: 0xfef08a,
+        fogColor: 0xfde08d,
+        sunColor: 0xffb74d,
+        sunIntensity: 1.55,
+        groundColor: 0xd99b52,
+        roadColor: 0x262b33,
+        type: 'dunes',
+        hasOcean: false
+      },
+      {
+        id: 'marina_blue',
+        name: 'Dubai Marina',
+        tag: 'Clear Blue Sky',
+        weather: '🌊 Clear Blue Sky • 28°C',
+        skyTop: 0x0ea5e9,
+        skyBottom: 0xe0f2fe,
+        fogColor: 0xdbf4ff,
+        sunColor: 0xffffff,
+        sunIntensity: 1.4,
+        groundColor: 0xebd7b2,
+        roadColor: 0x2e3642,
+        type: 'marina',
+        hasOcean: true
+      }
+    ];
+
+    // 3. GAME MODES
+    const MODES = [
+      {
+        id: 'classic',
+        name: 'Classic Highway',
+        icon: '🛣️',
+        desc: 'Endless traffic dodging & diamond collection'
+      },
+      {
+        id: 'race',
+        name: 'Dubai Race',
+        icon: '🏁',
+        desc: 'Checkpoint sprint against AI BMW rivals'
+      },
+      {
+        id: 'openworld',
+        name: 'Open World',
+        icon: '🌴',
+        desc: 'Free-roam Dubai highway, skyline & Marina'
+      }
+    ];
+
+    // 4. LOCALSTORAGE SAVE SYSTEM
+    const STORAGE_KEY = 'bmw_dubai_horizon_3d_v2';
+    let saveState = {
+      diamonds: 300,
+      unlocked: ['bmw_1973_2002'],
+      selectedCar: 'bmw_1973_2002',
+      paints: {}
+    };
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        saveState = { ...saveState, ...JSON.parse(raw) };
+      }
+    } catch (e) {}
+
+    function persistSave() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveState));
+      } catch (e) {}
+      document.getElementById('wallet-diamonds').textContent = saveState.diamonds.toLocaleString();
+    }
+
+    // 5. RUNTIME STATE
+    let screenState = 'SHOWROOM'; // 'SHOWROOM' | 'PLAYING' | 'ENDED'
+    let activeEnvId = 'szr_sunny';
+    let activeModeId = 'classic';
+    let cameraMode = 0; // 0: Chase, 1: Hood, 2: Cinematic
+    const CAM_LABELS = ['CHASE', 'HOOD', 'CINEMATIC'];
+
+    const sim = {
+      speed: 0,
+      playerX: 0,
+      velX: 0,
+      distance: 0,
+      topSpeed: 0,
+      score: 0,
+      runDiamonds: 0,
+      hp: 100,
+      maxHp: 100,
+      nitro: 100,
+      nitroActive: false,
+      shake: 0,
+      checkpointTimer: 40,
+      nextCheckpoint: 1000,
+      raceGoal: 5000
+    };
+
+    const keys = { left: false, right: false, up: false, down: false, nitro: false };
+
+    // 6. WEB AUDIO API (SYNTHESIZED ENGINE, TURBO BLOW-OFF, PICKUPS & CRASH)
+    let audioCtx = null;
+    let oscPrimary = null;
+    let oscSub = null;
+    let engineGain = null;
+    let audioMuted = false;
+    let wasNitroActive = false;
+
+    function ensureAudio() {
+      if (audioCtx) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+
+        oscPrimary = audioCtx.createOscillator();
+        oscSub = audioCtx.createOscillator();
+        const filter = audioCtx.createBiquadFilter();
+        engineGain = audioCtx.createGain();
+
+        oscPrimary.type = 'sawtooth';
+        oscSub.type = 'triangle';
+        oscPrimary.frequency.value = 50;
+        oscSub.frequency.value = 100;
+
+        filter.type = 'lowpass';
+        filter.frequency.value = 310;
+        engineGain.gain.value = 0;
+
+        oscPrimary.connect(filter);
+        oscSub.connect(filter);
+        filter.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
+
+        oscPrimary.start();
+        oscSub.start();
+      } catch (e) {}
+    }
+
+    function updateAudio(speed, isNitro, active) {
+      if (!audioCtx || !engineGain) return;
+      if (audioMuted || !active) {
+        engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+        return;
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const gearSpan = 62;
+      const gearRatio = (speed % gearSpan) / gearSpan;
+      const rpmFreq = 46 + gearRatio * 68 + (speed / 400) * 42 + (isNitro ? 30 : 0);
+
+      oscPrimary.frequency.setTargetAtTime(rpmFreq, audioCtx.currentTime, 0.04);
+      oscSub.frequency.setTargetAtTime(rpmFreq * 2.0, audioCtx.currentTime, 0.04);
+      engineGain.gain.setTargetAtTime(0.055 + (speed / 400) * 0.065, audioCtx.currentTime, 0.06);
+
+      // Turbo blow-off flutter when releasing nitro
+      if (wasNitroActive && !isNitro && speed > 100) {
+        triggerSfx('blowoff');
+      }
+      wasNitroActive = isNitro;
+    }
+
+    function triggerSfx(type) {
+      if (audioMuted) return;
+      ensureAudio();
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'diamond') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(920, now);
+        osc.frequency.exponentialRampToValueAtTime(1560, now + 0.14);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.19);
+      } else if (type === 'blowoff') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(420, now + 0.22);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'crash') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(26, now + 0.36);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      } else if (type === 'unlock') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.1);
+        osc.frequency.setValueAtTime(783.99, now + 0.2);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+        osc.start(now);
+        osc.stop(now + 0.44);
+      }
+    }
+
+    function toggleAudio() {
+      audioMuted = !audioMuted;
+      document.getElementById('sound-on-icon').classList.toggle('hidden', audioMuted);
+      document.getElementById('sound-off-icon').classList.toggle('hidden', !audioMuted);
+      if (!audioMuted) ensureAudio();
+    }
+
+    function cycleCameraMode() {
+      cameraMode = (cameraMode + 1) % 3;
+      document.getElementById('cam-label').textContent = CAM_LABELS[cameraMode];
+      showToast('🎥', `CAMERA: ${CAM_LABELS[cameraMode]} VIEW`);
+    }
+
+    // 7. THREE.JS SCENE SETUP
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 700);
+
+    // Bright Daylight & Sunset Lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe6cfa5, 0.95);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.45);
+    sunLight.position.set(50, 85, 35);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 230;
+    const shadowBound = 48;
+    sunLight.shadow.camera.left = -shadowBound;
+    sunLight.shadow.camera.right = shadowBound;
+    sunLight.shadow.camera.top = shadowBound;
+    sunLight.shadow.camera.bottom = -shadowBound;
+    scene.add(sunLight);
+
+    // Sky Dome Gradient
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = 32;
+    skyCanvas.height = 256;
+    const skyCtx = skyCanvas.getContext('2d');
+    const skyTexture = new THREE.CanvasTexture(skyCanvas);
+    const skyMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(540, 32, 20),
+      new THREE.MeshBasicMaterial({ map: skyTexture, side: THREE.BackSide, depthWrite: false })
+    );
+    scene.add(skyMesh);
+
+    function paintSky(topHex, botHex) {
+      const c1 = new THREE.Color(topHex);
+      const c2 = new THREE.Color(botHex);
+      const g = skyCtx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0.15, '#' + c1.getHexString());
+      g.addColorStop(0.62, '#' + c2.getHexString());
+      g.addColorStop(1.0, '#' + c2.getHexString());
+      skyCtx.fillStyle = g;
+      skyCtx.fillRect(0, 0, 32, 256);
+      skyTexture.needsUpdate = true;
+    }
+
+    // Desert Sand Ground & Arabian Gulf Ocean Backdrop
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xe8d1a7, roughness: 0.92, metalness: 0.02 });
+    const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(1300, 1300), groundMat);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.position.y = -0.05;
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    const oceanMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(600, 1300),
+      new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.16, metalness: 0.72 })
+    );
+    oceanMesh.rotation.x = -Math.PI / 2;
+    oceanMesh.position.set(-315, -0.02, 0);
+    oceanMesh.visible = false;
+    scene.add(oceanMesh);
+
+    // Wide 4-Lane Dubai Highway Asphalt
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x2b323c, roughness: 0.52, metalness: 0.14 });
+    const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(19, 1300), roadMat);
+    roadMesh.rotation.x = -Math.PI / 2;
+    roadMesh.receiveShadow = true;
+    scene.add(roadMesh);
+
+    // Red & White Highway Curbs
+    const curbs = [];
+    for (let i = 0; i < 48; i++) {
+      const z = -i * 12 + 30;
+      const mat = new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? 0xdc2626 : 0xffffff, roughness: 0.4 });
+      const left = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 12), mat);
+      left.position.set(-9.7, 0.22, z);
+      left.castShadow = true;
+      left.receiveShadow = true;
+
+      const right = left.clone();
+      right.position.x = 9.7;
+      scene.add(left, right);
+      curbs.push(left, right);
+    }
+
+    // Lane Dividers
+    const laneDashes = [];
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+    [-4.75, 0, 4.75].forEach(lx => {
+      for (let i = 0; i < 38; i++) {
+        const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 6.5), dashMat);
+        dash.rotation.x = -Math.PI / 2;
+        dash.position.set(lx, 0.02, -i * 15 + 20);
+        scene.add(dash);
+        laneDashes.push(dash);
+      }
+    });
+
+    // Burj Khalifa-Inspired Architectural Landmark
+    const burjLandmark = new THREE.Group();
+    const towerGlass = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.14, metalness: 0.88 });
+    [
+      { r: 7.5, h: 48, y: 24 },
+      { r: 5.5, h: 48, y: 68 },
+      { r: 3.8, h: 48, y: 110 },
+      { r: 2.2, h: 48, y: 152 },
+      { r: 0.9, h: 52, y: 196 }
+    ].forEach(seg => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(seg.r * 0.72, seg.r, seg.h, 6), towerGlass);
+      m.position.y = seg.y;
+      burjLandmark.add(m);
+    });
+    burjLandmark.position.set(62, 0, -370);
+    scene.add(burjLandmark);
+
+    // Scenery Props (Palm Trees, Skyline Towers, Desert Dunes)
+    const sceneryGroup = new THREE.Group();
+    scene.add(sceneryGroup);
+    const sceneryPool = [];
+
+    function makePalmTree() {
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.22, 0.38, 6.8, 7),
+        new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.9 })
+      );
+      trunk.position.y = 3.4;
+      trunk.castShadow = true;
+      g.add(trunk);
+
+      const frondMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.55 });
+      for (let i = 0; i < 6; i++) {
+        const frond = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.12, 3.3), frondMat);
+        frond.position.y = 6.7;
+        frond.rotation.y = (i * Math.PI) / 3;
+        frond.rotation.x = 0.44;
+        frond.castShadow = true;
+        g.add(frond);
+      }
+      return g;
+    }
+
+    function makeSkyscraper(height, hex) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(14, height, 14),
+        new THREE.MeshStandardMaterial({ color: hex, roughness: 0.18, metalness: 0.78 })
+      );
+      body.position.y = height / 2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      g.add(body);
+
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(9.5, 4, 9.5),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0.6 })
+      );
+      cap.position.y = height + 2;
+      g.add(cap);
+      return g;
+    }
+
+    function makeDesertDune() {
+      const h = 22 + Math.random() * 28;
+      const dune = new THREE.Mesh(
+        new THREE.ConeGeometry(34 + Math.random() * 18, h, 6),
+        new THREE.MeshStandardMaterial({ color: 0xd4944c, roughness: 0.96 })
+      );
+      dune.position.y = h / 2 - 1;
+      return dune;
+    }
+
+    function populateEnvironmentProps(envObj) {
+      while (sceneryGroup.children.length > 0) sceneryGroup.remove(sceneryGroup.children[0]);
+      sceneryPool.length = 0;
+      const glassPalette = [0xbae6fd, 0xf8fafc, 0x93c5fd, 0xe2e8f0, 0x7dd3fc];
+
+      for (let i = 0; i < 38; i++) {
+        const z = -i * 16 + 20;
+        [-1, 1].forEach(side => {
+          const palm = makePalmTree();
+          palm.position.set(side * 12.6, 0, z);
+          sceneryGroup.add(palm);
+          sceneryPool.push(palm);
+
+          if (envObj.type === 'dunes') {
+            if (i % 2 === 0) {
+              const dune = makeDesertDune();
+              dune.position.set(side * (46 + (i % 3) * 14), 0, z);
+              sceneryGroup.add(dune);
+              sceneryPool.push(dune);
+            }
+          } else {
+            if (side === -1 && envObj.hasOcean) return;
+            if (i % 2 === 0) {
+              const h = 42 + ((i * 17) % 72);
+              const tower = makeSkyscraper(h, glassPalette[i % glassPalette.length]);
+              tower.position.set(side * (29 + (i % 3) * 9), 0, z);
+              sceneryGroup.add(tower);
+              sceneryPool.push(tower);
+            }
+          }
+        });
+      }
+    }
+
+    // 8. 3D BMW CAR SILHOUETTE BUILDER + COLLISION SPARKS/SMOKE
+    const bmwCarGroup = new THREE.Group();
+    scene.add(bmwCarGroup);
+    let flameL = null;
+    let flameR = null;
+    const damageParticles = [];
+
+    function constructBMW(carSpec, overrideColor) {
+      while (bmwCarGroup.children.length > 0) bmwCarGroup.remove(bmwCarGroup.children[0]);
+      damageParticles.length = 0;
+
+      const paint = overrideColor || carSpec.defaultColor;
+      const bodyMat = new THREE.MeshStandardMaterial({ color: paint, roughness: 0.2, metalness: 0.72 });
+      const carbonMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.35 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.08, metalness: 0.92 });
+      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.14, metalness: 0.95 });
+
+      const w = carSpec.widebody ? 2.3 : 2.04;
+      const l = carSpec.shape === 'hyper' ? 4.9 : 4.55;
+      const h = carSpec.shape === 'hyper' ? 0.6 : 0.74;
+
+      // Sculpted Lower Body
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), bodyMat);
+      body.position.y = 0.62;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      bmwCarGroup.add(body);
+
+      // Front Splitter Lip
+      const splitter = new THREE.Mesh(new THREE.BoxGeometry(w * 1.02, 0.08, 0.35), carbonMat);
+      splitter.position.set(0, 0.28, -l / 2 - 0.06);
+      bmwCarGroup.add(splitter);
+
+      // Greenhouse / Cabin
+      const cabW = w * 0.82;
+      const cabL = carSpec.shape === 'classic' ? l * 0.52 : l * 0.46;
+      const cabH = carSpec.shape === 'hyper' ? 0.44 : 0.56;
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(cabW, cabH, cabL), glassMat);
+      cabin.position.set(0, 0.62 + h / 2 + cabH / 2 - 0.04, 0.14);
+      cabin.castShadow = true;
+      bmwCarGroup.add(cabin);
+
+      // Roof Panel (Carbon roof on modern M cars)
+      const roofMat = carSpec.shape === 'classic' ? bodyMat : carbonMat;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(cabW * 0.94, 0.07, cabL * 0.86), roofMat);
+      roof.position.set(0, 0.62 + h / 2 + cabH - 0.02, 0.14);
+      bmwCarGroup.add(roof);
+
+      // Distinct BMW Kidney Grilles by Era
+      let gW = 0.36, gH = 0.25, gOffset = 0.23;
+      if (carSpec.grilleStyle === 'classic_narrow') {
+        gW = 0.22; gH = 0.34; gOffset = 0.15;
+      } else if (carSpec.grilleStyle === 'vertical_g82') {
+        gW = 0.33; gH = 0.48; gOffset = 0.22;
+      } else if (carSpec.grilleStyle === 'illuminated_concept') {
+        gW = 0.52; gH = 0.24; gOffset = 0.31;
+      }
+
+      [-gOffset, gOffset].forEach(gx => {
+        const inner = new THREE.Mesh(new THREE.BoxGeometry(gW, gH, 0.08), carbonMat);
+        inner.position.set(gx, 0.58, -l / 2 - 0.02);
+        const surroundMat = carSpec.grilleStyle === 'illuminated_concept'
+          ? new THREE.MeshBasicMaterial({ color: 0xe0f2fe })
+          : chromeMat;
+        const border = new THREE.Mesh(new THREE.BoxGeometry(gW + 0.05, gH + 0.05, 0.06), surroundMat);
+        border.position.set(gx, 0.58, -l / 2 - 0.01);
+        bmwCarGroup.add(border, inner);
+      });
+
+      // Headlights & Taillights
+      const headMat = new THREE.MeshBasicMaterial({ color: 0xf0f9ff });
+      const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+      [-0.72, 0.72].forEach(xPos => {
+        const hl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.08), headMat);
+        hl.position.set(xPos, 0.64, -l / 2 - 0.02);
+        const tl = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.17, 0.08), tailMat);
+        tl.position.set(xPos, 0.68, l / 2 + 0.02);
+        bmwCarGroup.add(hl, tl);
+      });
+
+      // Rear Wing / Spoiler
+      if (carSpec.spoiler) {
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(w * 0.96, 0.08, 0.34), carbonMat);
+        wing.position.set(0, 1.18, l / 2 - 0.22);
+        wing.castShadow = true;
+        const sL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.22), carbonMat);
+        sL.position.set(-0.65, 1.04, l / 2 - 0.22);
+        const sR = sL.clone();
+        sR.position.x = 0.65;
+        bmwCarGroup.add(wing, sL, sR);
+      }
+
+      // Twin-Turbo Nitro Exhaust Flames
+      const flameMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.92 });
+      flameL = new THREE.Mesh(new THREE.ConeGeometry(0.14, 1.0, 8), flameMat);
+      flameL.rotation.x = Math.PI / 2;
+      flameL.position.set(-0.55, 0.35, l / 2 + 0.48);
+      flameL.visible = false;
+
+      flameR = flameL.clone();
+      flameR.position.x = 0.55;
+      bmwCarGroup.add(flameL, flameR);
+
+      // 4 Alloy Wheels
+      const tireGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 18);
+      const tireMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.8 });
+      const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.29, 12);
+
+      [
+        [-w / 2 - 0.02, 0.38, -l * 0.31],
+        [w / 2 + 0.02, 0.38, -l * 0.31],
+        [-w / 2 - 0.02, 0.38, l * 0.31],
+        [w / 2 + 0.02, 0.38, l * 0.31]
+      ].forEach(([wx, wy, wz]) => {
+        const tire = new THREE.Mesh(tireGeo, tireMat);
+        tire.rotation.z = Math.PI / 2;
+        tire.position.set(wx, wy, wz);
+        tire.castShadow = true;
+
+        const rim = new THREE.Mesh(rimGeo, chromeMat);
+        rim.rotation.z = Math.PI / 2;
+        rim.position.set(wx, wy, wz);
+        bmwCarGroup.add(tire, rim);
+      });
+    }
+
+    function spawnCollisionSparks(x, z) {
+      for (let i = 0; i < 14; i++) {
+        const isSpark = i < 9;
+        const p = new THREE.Mesh(
+          new THREE.BoxGeometry(isSpark ? 0.14 : 0.32, isSpark ? 0.14 : 0.32, isSpark ? 0.14 : 0.32),
+          new THREE.MeshBasicMaterial({
+            color: isSpark ? 0xfbbf24 : 0x64748b,
+            transparent: true,
+            opacity: 0.9
+          })
+        );
+        p.position.set(x + (Math.random() - 0.5) * 1.6, 0.6 + Math.random() * 0.6, z);
+        scene.add(p);
+        damageParticles.push({
+          mesh: p,
+          vx: (Math.random() - 0.5) * 9,
+          vy: 3 + Math.random() * 6,
+          vz: (Math.random() - 0.5) * 9,
+          life: 0.55
+        });
+      }
+    }
+
+    // 9. TRAFFIC, AI BMW RIVALS & FLOATING DIAMONDS
+    const trafficPool = [];
+    const diamondPool = [];
+    const rivalPool = [];
+
+    function makeVehicleBox(colorHex, isBus = false) {
+      const g = new THREE.Group();
+      const w = isBus ? 2.35 : 1.96;
+      const h = isBus ? 1.9 : 0.85;
+      const l = isBus ? 6.5 : 4.35;
+
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, l),
+        new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.28, metalness: 0.52 })
+      );
+      body.position.y = h / 2 + 0.32;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      g.add(body);
+
+      if (!isBus) {
+        const cab = new THREE.Mesh(
+          new THREE.BoxGeometry(w * 0.82, 0.52, l * 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.14, metalness: 0.86 })
+        );
+        cab.position.set(0, h + 0.5, 0.1);
+        g.add(cab);
+      }
+
+      const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+      [-w * 0.34, w * 0.34].forEach(tx => {
+        const tl = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.16, 0.06), tailMat);
+        tl.position.set(tx, 0.66, l / 2 + 0.02);
+        g.add(tl);
+      });
+
+      return { mesh: g, w, l };
+    }
+
+    function makeDiamondGem() {
+      const gem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.58, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x0ea5e9,
+          emissive: 0x0284c7,
+          emissiveIntensity: 0.35,
+          roughness: 0.1,
+          metalness: 0.9
+        })
+      );
+      gem.position.y = 1.08;
+      gem.castShadow = true;
+      return gem;
+    }
+
+    function clearWorldEntities() {
+      trafficPool.forEach(t => scene.remove(t.mesh));
+      trafficPool.length = 0;
+      diamondPool.forEach(d => scene.remove(d.mesh));
+      diamondPool.length = 0;
+      rivalPool.forEach(r => scene.remove(r.mesh));
+      rivalPool.length = 0;
+    }
+
+    function populateWorldEntities() {
+      clearWorldEntities();
+      const lanes = [-6.8, -2.3, 2.3, 6.8];
+      const colors = [0xffffff, 0xfbbf24, 0x64748b, 0x0f172a, 0xdc2626, 0x38bdf8];
+
+      const numTraffic = activeModeId === 'openworld' ? 9 : 13;
+      for (let i = 0; i < numTraffic; i++) {
+        const isBus = i % 5 === 4;
+        const v = makeVehicleBox(colors[i % colors.length], isBus);
+        const lx = lanes[i % lanes.length];
+        v.mesh.position.set(lx, 0, -70 - i * 38);
+        scene.add(v.mesh);
+        trafficPool.push({
+          mesh: v.mesh,
+          w: v.w,
+          l: v.l,
+          speed: isBus ? 78 : 96 + (i % 4) * 14,
+          passed: false
+        });
+      }
+
+      for (let i = 0; i < 14; i++) {
+        const gem = makeDiamondGem();
+        gem.position.set(lanes[(i * 3) % lanes.length], 1.08, -45 - i * 40);
+        scene.add(gem);
+        diamondPool.push({ mesh: gem, taken: false });
+      }
+
+      if (activeModeId === 'race') {
+        [
+          { color: 0xe11d48, lane: -2.3, speed: 240, offset: 20 },
+          { color: 0xf59e0b, lane: 2.3, speed: 262, offset: 36 },
+          { color: 0x0284c7, lane: 6.8, speed: 282, offset: 52 }
+        ].forEach(rv => {
+          const v = makeVehicleBox(rv.color, false);
+          v.mesh.position.set(rv.lane, 0, -rv.offset);
+          scene.add(v.mesh);
+          rivalPool.push({
+            mesh: v.mesh,
+            speed: rv.speed,
+            dist: rv.offset
+          });
+        });
+      }
+    }
+
+    // 10. UI CONTROLS & SHOWROOM RENDERING
+    let toastTimeout = null;
+    function showToast(icon, msg) {
+      const box = document.getElementById('toast-box');
+      document.getElementById('toast-icon').textContent = icon;
+      document.getElementById('toast-msg').textContent = msg;
+      box.classList.remove('opacity-0', '-translate-y-3');
+      box.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        box.classList.remove('opacity-100', 'translate-y-0');
+        box.classList.add('opacity-0', '-translate-y-3');
+      }, 2000);
+    }
+
+    function setEnvironment(envId) {
+      activeEnvId = envId;
+      const env = ENVIRONMENTS.find(e => e.id === envId) || ENVIRONMENTS[0];
+      paintSky(env.skyTop, env.skyBottom);
+      scene.fog = new THREE.FogExp2(env.fogColor, 0.0023);
+      sunLight.color.setHex(env.sunColor);
+      sunLight.intensity = env.sunIntensity;
+      groundMat.color.setHex(env.groundColor);
+      roadMat.color.setHex(env.roadColor);
+      oceanMesh.visible = env.hasOcean;
+      burjLandmark.visible = env.type !== 'dunes';
+      document.getElementById('env-badge').textContent = env.weather;
+      populateEnvironmentProps(env);
+      renderTopSelectors();
+    }
+
+    function setMode(modeId) {
+      activeModeId = modeId;
+      renderTopSelectors();
+    }
+
+    function renderTopSelectors() {
+      document.getElementById('env-grid').innerHTML = ENVIRONMENTS.map(e => {
+        const sel = e.id === activeEnvId;
+        return `
+          <button onclick="setEnvironment('${e.id}')" class="p-2.5 rounded-2xl text-left transition cursor-pointer border ${
+            sel ? 'bg-slate-900 text-white border-slate-900 shadow' : 'bg-white/75 hover:bg-white text-slate-800 border-slate-200'
+          }">
+            <div class="text-xs font-extrabold truncate">${e.name}</div>
+            <div class="text-[10px] ${sel ? 'text-sky-400' : 'text-slate-500'} font-semibold mt-0.5">${e.tag}</div>
+          </button>
+        `;
+      }).join('');
+
+      const mObj = MODES.find(m => m.id === activeModeId);
+      document.getElementById('mode-subtitle').textContent = mObj.desc;
+
+      document.getElementById('mode-grid').innerHTML = MODES.map(m => {
+        const sel = m.id === activeModeId;
+        return `
+          <button onclick="setMode('${m.id}')" class="p-2.5 rounded-2xl text-left transition cursor-pointer border ${
+            sel ? 'bg-sky-600 text-white border-sky-600 shadow' : 'bg-white/75 hover:bg-white text-slate-800 border-slate-200'
+          }">
+            <div class="text-xs font-extrabold flex items-center gap-1"><span>${m.icon}</span><span>${m.name}</span></div>
+            <div class="text-[10px] ${sel ? 'text-sky-100' : 'text-slate-500'} font-medium truncate mt-0.5">${m.id.toUpperCase()}</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderShowroom() {
+      const car = CARS.find(c => c.id === saveState.selectedCar) || CARS[0];
+      const unlocked = saveState.unlocked.includes(car.id);
+      const paint = saveState.paints[car.id] || car.defaultColor;
+
+      constructBMW(car, paint);
+
+      document.getElementById('ui-car-era').textContent = `${car.year} • ${car.era}`;
+      document.getElementById('ui-car-name').textContent = car.name;
+      document.getElementById('ui-car-desc').textContent = car.desc;
+
+      const ownedPill = document.getElementById('ui-car-owned');
+      if (unlocked) {
+        ownedPill.textContent = '✓ OWNED IN GARAGE';
+        ownedPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
+      } else {
+        ownedPill.textContent = `🔒 LOCKED • ${car.price.toLocaleString()} 💎`;
+        ownedPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800';
+      }
+
+      document.getElementById('spec-speed-txt').textContent = `${car.topSpeed} KM/H`;
+      document.getElementById('spec-speed-bar').style.width = `${Math.min(100, (car.topSpeed / 400) * 100)}%`;
+
+      document.getElementById('spec-accel-txt').textContent = `${(7.8 - car.accel * 4.5).toFixed(1)}s`;
+      document.getElementById('spec-accel-bar').style.width = `${Math.min(100, car.accel * 90)}%`;
+
+      document.getElementById('spec-hand-txt').textContent = `${Math.round(car.handling * 85)}%`;
+      document.getElementById('spec-hand-bar').style.width = `${Math.min(100, car.handling * 88)}%`;
+
+      document.getElementById('spec-armor-txt').textContent = `${car.armor} HP`;
+      document.getElementById('spec-armor-bar').style.width = `${Math.min(100, (car.armor / 210) * 100)}%`;
+
+      const cta = document.getElementById('btn-primary-cta');
+      if (unlocked) {
+        cta.className = 'btn-drive text-white font-black text-base sm:text-lg px-7 py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 cursor-pointer';
+        cta.innerHTML = `<span>START ENGINE</span><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>`;
+      } else {
+        const affordable = saveState.diamonds >= car.price;
+        cta.className = `${
+          affordable ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:brightness-110' : 'bg-slate-300 text-slate-600'
+        } font-black text-base sm:text-lg px-7 py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer`;
+        cta.innerHTML = `<span>UNLOCK FOR ${car.price.toLocaleString()} 💎</span>`;
+      }
+
+      document.getElementById('car-strip').innerHTML = CARS.map(c => {
+        const isSel = c.id === saveState.selectedCar;
+        const isOwn = saveState.unlocked.includes(c.id);
+        return `
+          <button onclick="pickCar('${c.id}')" class="flex-shrink-0 w-44 p-3 rounded-2xl text-left transition cursor-pointer border ${
+            isSel ? 'bg-slate-900 text-white border-sky-500 ring-2 ring-sky-500/40 shadow' : 'bg-white/85 hover:bg-white text-slate-900 border-slate-200'
+          }">
+            <div class="flex items-center justify-between text-[10px] font-extrabold">
+              <span class="${isSel ? 'text-sky-400' : 'text-slate-500'}">${c.year}</span>
+              <span>${isOwn ? '✅' : `💎 ${c.price}`}</span>
+            </div>
+            <div class="font-extrabold text-xs sm:text-sm truncate mt-1">${c.name}</div>
+            <div class="text-[10px] ${isSel ? 'text-slate-300' : 'text-slate-500'} mt-0.5">${c.topSpeed} KM/H • ${c.era}</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function pickCar(id) {
+      saveState.selectedCar = id;
+      persistSave();
+      renderShowroom();
+    }
+
+    function changePaint(hex) {
+      saveState.paints[saveState.selectedCar] = hex;
+      persistSave();
+      renderShowroom();
+    }
+
+    function onPrimaryAction() {
+      ensureAudio();
+      const car = CARS.find(c => c.id === saveState.selectedCar);
+      if (saveState.unlocked.includes(car.id)) {
+        startDrive();
+      } else if (saveState.diamonds >= car.price) {
+        saveState.diamonds -= car.price;
+        saveState.unlocked.push(car.id);
+        persistSave();
+        triggerSfx('unlock');
+        showToast('🎉', `UNLOCKED ${car.name.toUpperCase()}!`);
+        renderShowroom();
+      } else {
+        showToast('💎', `NEED ${(car.price - saveState.diamonds).toLocaleString()} MORE DIAMONDS!`);
+      }
+    }
+
+    // 11. GAMEPLAY START, END & CAMERA SWITCHING
+    function startDrive() {
+      ensureAudio();
+      const car = CARS.find(c => c.id === saveState.selectedCar);
+      if (!saveState.unlocked.includes(car.id)) {
+        saveState.selectedCar = 'bmw_1973_2002';
+      }
+      const activeCar = CARS.find(c => c.id === saveState.selectedCar);
+
+      screenState = 'PLAYING';
+      sim.speed = 70;
+      sim.playerX = 0;
+      sim.velX = 0;
+      sim.distance = 0;
+      sim.topSpeed = 0;
+      sim.score = 0;
+      sim.runDiamonds = 0;
+      sim.hp = activeCar.armor;
+      sim.maxHp = activeCar.armor;
+      sim.nitro = 100;
+      sim.shake = 0;
+      sim.checkpointTimer = 40;
+      sim.nextCheckpoint = 1000;
+
+      bmwCarGroup.position.set(0, 0, 0);
+      bmwCarGroup.rotation.set(0, 0, 0);
+
+      document.getElementById('showroom-ui').classList.add('hidden');
+      document.getElementById('end-modal').classList.add('hidden');
+      document.getElementById('gameplay-hud').classList.remove('hidden');
+      document.getElementById('btn-garage').classList.remove('hidden');
+      document.getElementById('btn-cam').classList.remove('hidden');
+
+      const mapSwitchBtn = document.getElementById('btn-openworld-env');
+      if (activeModeId === 'classic') {
+        document.getElementById('hud-m1-label').textContent = 'DISTANCE';
+        document.getElementById('hud-m2-label').textContent = 'SCORE';
+        mapSwitchBtn.classList.add('hidden');
+      } else if (activeModeId === 'race') {
+        document.getElementById('hud-m1-label').textContent = 'POSITION';
+        document.getElementById('hud-m2-label').textContent = 'CHECKPOINT';
+        mapSwitchBtn.classList.add('hidden');
+      } else {
+        document.getElementById('hud-m1-label').textContent = 'FREE ROAM';
+        document.getElementById('hud-m2-label').textContent = 'LOCATION';
+        mapSwitchBtn.classList.remove('hidden');
+      }
+
+      populateWorldEntities();
+    }
+
+    function openGarage() {
+      screenState = 'SHOWROOM';
+      sim.speed = 0;
+      clearWorldEntities();
+      bmwCarGroup.position.set(0, 0, 0);
+      bmwCarGroup.rotation.set(0, 0, 0);
+
+      document.getElementById('gameplay-hud').classList.add('hidden');
+      document.getElementById('end-modal').classList.add('hidden');
+      document.getElementById('btn-garage').classList.add('hidden');
+      document.getElementById('btn-cam').classList.add('hidden');
+      document.getElementById('showroom-ui').classList.remove('hidden');
+      renderShowroom();
+    }
+
+    function cycleEnvironmentInGame() {
+      const idx = ENVIRONMENTS.findIndex(e => e.id === activeEnvId);
+      const next = ENVIRONMENTS[(idx + 1) % ENVIRONMENTS.length];
+      setEnvironment(next.id);
+      showToast('🌅', `ENTERED ${next.name.toUpperCase()}`);
+    }
+
+    function finishSession(outcome) {
+      screenState = 'ENDED';
+      saveState.diamonds += sim.runDiamonds;
+      persistSave();
+
+      document.getElementById('gameplay-hud').classList.add('hidden');
+      document.getElementById('end-modal').classList.remove('hidden');
+
+      const badge = document.getElementById('end-badge');
+      const title = document.getElementById('end-title');
+      const sub = document.getElementById('end-sub');
+
+      if (outcome === 'destroyed') {
+        triggerSfx('crash');
+        badge.textContent = '💥 VEHICLE WRECKED';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 mb-3';
+        title.textContent = 'BMW DESTROYED!';
+        sub.textContent = 'Your BMW took critical collision damage on Dubai Highway.';
+      } else if (outcome === 'timeout') {
+        badge.textContent = '⏱️ TIME EXPIRED';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 mb-3';
+        title.textContent = 'CHECKPOINT MISSED';
+        sub.textContent = 'Use Nitro Boost on straightaways to beat the checkpoint timer!';
+      } else {
+        triggerSfx('unlock');
+        badge.textContent = '🏆 DUBAI GRAND PRIX';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-700 mb-3';
+        title.textContent = 'RACE COMPLETED!';
+        sub.textContent = 'Championship prize diamonds added to your wallet!';
+      }
+
+      document.getElementById('res-dist').textContent = `${(sim.distance / 1000).toFixed(2)} KM`;
+      document.getElementById('res-speed').textContent = `${Math.round(sim.topSpeed)} KM/H`;
+      document.getElementById('res-diamonds').textContent = `+${sim.runDiamonds}`;
+    }
+
+    // 12. INPUT CONTROLS (KEYBOARD + TOUCH)
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+      if (e.code === 'Space' || e.key === 'Shift') keys.nitro = true;
+      if ((e.key === 'c' || e.key === 'C') && screenState === 'PLAYING') cycleCameraMode();
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
+      if (e.code === 'Space' || e.key === 'Shift') keys.nitro = false;
+    });
+
+    function bindTouch(id, prop) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const on = e => { e.preventDefault(); keys[prop] = true; };
+      const off = e => { e.preventDefault(); keys[prop] = false; };
+      el.addEventListener('touchstart', on, { passive: false });
+      el.addEventListener('touchend', off, { passive: false });
+      el.addEventListener('mousedown', on);
+      el.addEventListener('mouseup', off);
+      el.addEventListener('mouseleave', off);
+    }
+    bindTouch('t-left', 'left');
+    bindTouch('t-right', 'right');
+    bindTouch('t-gas', 'up');
+    bindTouch('t-brake', 'down');
+    bindTouch('t-nitro', 'nitro');
+
+    // 13. MAIN SIMULATION & RENDER LOOP
+    let prevTime = performance.now();
+    let orbitTheta = 0.6;
+
+    function gameLoop(now) {
+      requestAnimationFrame(gameLoop);
+      const dt = Math.min((now - prevTime) / 1000, 0.05);
+      prevTime = now;
+
+      // Update collision sparks/smoke particles
+      for (let i = damageParticles.length - 1; i >= 0; i--) {
+        const p = damageParticles[i];
+        p.life -= dt;
+        p.mesh.position.x += p.vx * dt;
+        p.mesh.position.y += p.vy * dt;
+        p.mesh.position.z += p.vz * dt;
+        p.vy -= 14 * dt;
+        p.mesh.material.opacity = Math.max(0, p.life * 1.6);
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          damageParticles.splice(i, 1);
+        }
+      }
+
+      if (screenState === 'SHOWROOM') {
+        orbitTheta += dt * 0.42;
+        camera.position.set(Math.sin(orbitTheta) * 6.9, 2.5, Math.cos(orbitTheta) * 6.9);
+        camera.lookAt(0, 0.85, 0);
+        camera.fov += (55 - camera.fov) * 0.1;
+        camera.updateProjectionMatrix();
+        updateAudio(0, false, false);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      if (screenState === 'ENDED') {
+        orbitTheta += dt * 0.65;
+        camera.position.set(
+          bmwCarGroup.position.x + Math.sin(orbitTheta) * 7.5,
+          3.2,
+          bmwCarGroup.position.z + Math.cos(orbitTheta) * 7.5
+        );
+        camera.lookAt(bmwCarGroup.position.x, 0.9, bmwCarGroup.position.z);
+        updateAudio(0, false, false);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // === ACTIVE DRIVING SIMULATION ===
+      const car = CARS.find(c => c.id === saveState.selectedCar) || CARS[0];
+
+      // Nitro Boost
+      sim.nitroActive = keys.nitro && sim.nitro > 2 && sim.speed > 45;
+      if (sim.nitroActive) {
+        sim.nitro = Math.max(0, sim.nitro - 27 * dt);
+      } else {
+        sim.nitro = Math.min(100, sim.nitro + 11 * dt);
+      }
+
+      if (flameL && flameR) {
+        flameL.visible = sim.nitroActive;
+        flameR.visible = sim.nitroActive;
+        if (sim.nitroActive) {
+          const s = 0.85 + Math.random() * 0.65;
+          flameL.scale.set(1, s, 1);
+          flameR.scale.set(1, s, 1);
+        }
+      }
+
+      // Longitudinal Acceleration & Braking
+      const ceiling = sim.nitroActive ? car.topSpeed * 1.24 : car.topSpeed;
+      if (keys.up || sim.nitroActive) {
+        sim.speed += car.accel * 96 * (sim.nitroActive ? 2.15 : 1.0) * dt;
+      } else if (keys.down) {
+        sim.speed -= 165 * dt;
+      } else {
+        const cruise = 78;
+        if (sim.speed > cruise) sim.speed -= 26 * dt;
+        else sim.speed += 24 * dt;
+      }
+      sim.speed = Math.max(30, Math.min(ceiling, sim.speed));
+      if (sim.speed > sim.topSpeed) sim.topSpeed = sim.speed;
+
+      // Lateral Steering
+      const steerPower = 18 + car.handling * 15;
+      if (keys.left) sim.velX -= steerPower * dt * 3.2;
+      if (keys.right) sim.velX += steerPower * dt * 3.2;
+      sim.velX *= Math.pow(0.06, dt);
+      sim.playerX += sim.velX * dt;
+
+      // Curb Guardrail Scrape
+      if (Math.abs(sim.playerX) > 7.9) {
+        sim.playerX = Math.sign(sim.playerX) * 7.9;
+        sim.velX *= -0.35;
+        sim.speed *= 0.96;
+        sim.hp = Math.max(0, sim.hp - 12 * dt);
+        sim.shake = 0.14;
+      }
+
+      bmwCarGroup.position.x = sim.playerX;
+      bmwCarGroup.rotation.z = -sim.velX * 0.018;
+      bmwCarGroup.rotation.y = -sim.velX * 0.015;
+      bmwCarGroup.rotation.x = sim.nitroActive ? 0.025 : (keys.down ? -0.025 : 0);
+
+      // World Scroll
+      const dz = (sim.speed / 3.6) * 1.15 * dt;
+      sim.distance += dz;
+      sim.score += Math.round(dz * (sim.nitroActive ? 2.5 : 1));
+
+      laneDashes.forEach(d => {
+        d.position.z += dz;
+        if (d.position.z > 25) d.position.z -= 570;
+      });
+      curbs.forEach(c => {
+        c.position.z += dz;
+        if (c.position.z > 30) c.position.z -= 576;
+      });
+      sceneryPool.forEach(p => {
+        p.position.z += dz;
+        if (p.position.z > 30) p.position.z -= 608;
+      });
+
+      // Diamond Pickups
+      diamondPool.forEach(d => {
+        d.mesh.position.z += dz;
+        d.mesh.rotation.y += 3.2 * dt;
+        if (!d.taken && Math.abs(d.mesh.position.z) < 2.6 && Math.abs(d.mesh.position.x - sim.playerX) < 1.9) {
+          d.taken = true;
+          d.mesh.visible = false;
+          sim.runDiamonds += 10;
+          triggerSfx('diamond');
+          showToast('💎', '+10 DIAMONDS COLLECTED!');
+        }
+        if (d.mesh.position.z > 25) {
+          const lanes = [-6.8, -2.3, 2.3, 6.8];
+          d.mesh.position.z = -480 - Math.random() * 80;
+          d.mesh.position.x = lanes[Math.floor(Math.random() * lanes.length)];
+          d.taken = false;
+          d.mesh.visible = true;
+        }
+      });
+
+      // Traffic Collisions & Near-Misses
+      trafficPool.forEach(t => {
+        const relZ = ((sim.speed - t.speed) / 3.6) * 1.15 * dt;
+        t.mesh.position.z += relZ;
+
+        const zGap = Math.abs(t.mesh.position.z);
+        const xGap = Math.abs(t.mesh.position.x - sim.playerX);
+        const hitZ = t.l / 2 + 2.1;
+        const hitX = t.w / 2 + 0.96;
+
+        if (!t.passed && t.mesh.position.z > 1.5 && t.mesh.position.z < 6 && xGap < hitX + 1.35 && sim.speed > 130) {
+          t.passed = true;
+          sim.runDiamonds += 15;
+          sim.nitro = Math.min(100, sim.nitro + 12);
+          triggerSfx('diamond');
+          showToast('⚡', 'CLOSE OVERTAKE! +15 💎');
+        }
+
+        if (zGap < hitZ && xGap < hitX) {
+          triggerSfx('crash');
+          sim.shake = 0.55;
+          spawnCollisionSparks(sim.playerX, -1.5);
+          const dmg = Math.max(24, (sim.speed - t.speed) * 0.35);
+          sim.hp = Math.max(0, sim.hp - dmg);
+          sim.speed = Math.max(45, sim.speed * 0.45);
+
+          t.mesh.position.z = -400 - Math.random() * 120;
+          t.passed = false;
+
+          if (sim.hp <= 0) {
+            finishSession('destroyed');
+            return;
+          } else {
+            showToast('💥', `COLLISION! -${Math.round(dmg)} ARMOR`);
+          }
+        }
+
+        if (t.mesh.position.z > 35 || t.mesh.position.z < -580) {
+          const lanes = [-6.8, -2.3, 2.3, 6.8];
+          t.mesh.position.z = -440 - Math.random() * 120;
+          t.mesh.position.x = lanes[Math.floor(Math.random() * lanes.length)];
+          t.passed = false;
+        }
+      });
+
+      // Mode Rules
+      if (activeModeId === 'classic') {
+        document.getElementById('hud-m1-val').textContent = `${(sim.distance / 1000).toFixed(2)} KM`;
+        document.getElementById('hud-m2-val').textContent = sim.score.toLocaleString();
+      } else if (activeModeId === 'race') {
+        sim.checkpointTimer -= dt;
+        if (sim.distance >= sim.nextCheckpoint) {
+          sim.nextCheckpoint += 1000;
+          sim.checkpointTimer += 20;
+          sim.runDiamonds += 20;
+          triggerSfx('diamond');
+          showToast('🏁', 'CHECKPOINT! +20s & +20 💎');
+        }
+
+        let pos = 1;
+        rivalPool.forEach(rv => {
+          rv.dist += (rv.speed / 3.6) * 1.15 * dt;
+          rv.mesh.position.z = -(rv.dist - sim.distance);
+          if (rv.dist > sim.distance) pos++;
+        });
+
+        document.getElementById('hud-m1-val').textContent = ['1ST', '2ND', '3RD', '4TH'][pos - 1] || '4TH';
+        const timeEl = document.getElementById('hud-m2-val');
+        timeEl.textContent = `${Math.max(0, Math.ceil(sim.checkpointTimer))}s`;
+        timeEl.classList.toggle('animate-warn', sim.checkpointTimer <= 8);
+
+        if (sim.checkpointTimer <= 0) {
+          finishSession('timeout');
+          return;
+        }
+        if (sim.distance >= sim.raceGoal) {
+          sim.runDiamonds += pos === 1 ? 160 : pos === 2 ? 100 : 60;
+          finishSession('race_win');
+          return;
+        }
+      } else {
+        const envObj = ENVIRONMENTS.find(e => e.id === activeEnvId);
+        document.getElementById('hud-m1-val').textContent = `${(sim.distance / 1000).toFixed(2)} KM`;
+        document.getElementById('hud-m2-val').textContent = envObj ? envObj.tag.toUpperCase() : 'DUBAI';
+      }
+
+      // Camera Angles (0: Chase, 1: Hood, 2: Cinematic)
+      const baseFov = cameraMode === 1 ? 68 : 60;
+      const targetFov = baseFov + (sim.speed / 360) * 17 + (sim.nitroActive ? 9 : 0);
+      camera.fov += (targetFov - camera.fov) * 0.1;
+      camera.updateProjectionMatrix();
+
+      if (sim.shake > 0) sim.shake = Math.max(0, sim.shake - 1.8 * dt);
+      const sx = (Math.random() - 0.5) * sim.shake;
+      const sy = (Math.random() - 0.5) * sim.shake;
+
+      if (cameraMode === 0) {
+        camera.position.set(sim.playerX * 0.65 + sx, 2.55 + (sim.nitroActive ? -0.15 : 0) + sy, 6.8 + (sim.nitroActive ? 0.55 : 0));
+        camera.lookAt(sim.playerX * 0.85, 1.05, -14);
+      } else if (cameraMode === 1) {
+        camera.position.set(sim.playerX + sx * 0.4, 1.32 + sy * 0.4, -0.35);
+        camera.lookAt(sim.playerX + sim.velX * 0.12, 1.15, -24);
+      } else {
+        camera.position.set(sim.playerX * 0.5 + 3.8 + sx, 3.3 + sy, 8.2);
+        camera.lookAt(sim.playerX * 0.8, 0.95, -10);
+      }
+
+      // Update HUD
+      document.getElementById('hud-speed').textContent = Math.round(sim.speed);
+      document.getElementById('hud-gear').textContent = Math.min(6, Math.max(1, Math.floor(sim.speed / 60) + 1));
+      document.getElementById('hud-m3-val').textContent = `+${sim.runDiamonds}`;
+
+      const hpPct = Math.round((sim.hp / sim.maxHp) * 100);
+      document.getElementById('hud-hp-txt').textContent = `${hpPct}%`;
+      const hpBar = document.getElementById('hud-hp-bar');
+      hpBar.style.width = `${hpPct}%`;
+      hpBar.className = `h-full rounded-full transition-all duration-150 ${
+        hpPct > 50 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : hpPct > 25 ? 'bg-amber-500' : 'bg-rose-600'
+      }`;
+
+      const nosPct = Math.round(sim.nitro);
+      document.getElementById('hud-nos-txt').textContent = `${nosPct}%`;
+      document.getElementById('hud-nos-bar').style.width = `${nosPct}%`;
+
+      updateAudio(sim.speed, sim.nitroActive, true);
+      renderer.render(scene, camera);
+    }
+
+    // 14. RESIZE & INIT
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.onload = function () {
+      persistSave();
+      setEnvironment('szr_sunny');
+      renderShowroom();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
+```
